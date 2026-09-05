@@ -1,0 +1,1374 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Turning Text Into Numbers</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#F4F0E6;
+    --surface:#FBF8F1;
+    --card:#ECE6D6;
+    --card-hover:#E5DEC9;
+    --border:#DCD3B8;
+    --border-soft:#E5DEC9;
+    --ink:#2A2620;
+    --ink-dim:#6B6250;
+    --ink-faint:#948A73;
+    --good:#2F7D4F;
+    --bad:#B23A2E;
+    --sans:'IBM Plex Sans', -apple-system, sans-serif;
+    --mono:'IBM Plex Mono', ui-monospace, 'SFMono-Regular', monospace;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--ink);
+    font-family:var(--sans);
+    line-height:1.6;
+  }
+  ::selection{background:rgba(42,38,32,0.12);}
+
+  .view{display:none;}
+  .view.active{display:block;}
+
+  /* ---------- landing ---------- */
+  #landing{max-width:960px; margin:0 auto; padding:64px 24px 80px;}
+  .landing-eyebrow{
+    font-size:13px; color:var(--ink-faint); margin-bottom:18px;
+    font-family:var(--mono); letter-spacing:0.02em;
+  }
+  .landing-eyebrow::before{content:'— '; color:#0E7C86;}
+  #landing h1{
+    font-size:48px; font-weight:700; line-height:1.12; margin:0 0 20px;
+    letter-spacing:-0.015em; color:var(--ink);
+  }
+  #landing h1 span{display:block; color:#0E7C86;}
+  #landing .lede{
+    font-size:17px; color:var(--ink-dim); max-width:640px; margin:0 0 8px;
+  }
+  #landing .lede b{color:var(--ink); font-weight:600;}
+  .source-note{
+    font-size:13px; color:var(--ink-faint); margin:22px 0 44px;
+    border-left:2px solid var(--border); padding-left:12px;
+  }
+  .card-grid{display:grid; grid-template-columns:1fr 1fr; gap:14px;}
+  .topic-card{
+    display:flex; gap:16px; text-align:left; width:100%;
+    background:var(--card); border:1px solid var(--border);
+    border-radius:12px; padding:20px 22px; cursor:pointer;
+    color:inherit; font-family:inherit;
+  }
+  .topic-card:hover{background:var(--card-hover);}
+  .topic-icon{
+    flex:0 0 42px; width:42px; height:42px; border-radius:9px;
+    display:flex; align-items:center; justify-content:center; font-size:20px;
+    background:var(--ac-soft); border:1px solid var(--ac-border);
+  }
+  .topic-copy{flex:1;}
+  .topic-card .kicker{font-family:var(--mono); font-size:11.5px; color:var(--ink-faint); margin-bottom:6px;}
+  .topic-card h3{margin:0 0 6px; font-size:17px; font-weight:600; color:var(--ink);}
+  .topic-card p{margin:0 0 10px; font-size:13.5px; color:var(--ink-dim);}
+  .topic-card .open-link{font-size:12.5px; font-weight:600; color:var(--ac);}
+  @media (max-width:640px){.card-grid{grid-template-columns:1fr;}}
+
+  /* topic accent tokens (also used on landing cards via data-accent) */
+  [data-accent="cyan"]{--ac:#0E7C86; --ac-soft:#DCEEEC; --ac-border:#BFDEDB;}
+  [data-accent="amber"]{--ac:#A5680B; --ac-soft:#F3E6C9; --ac-border:#E7D3A0;}
+  [data-accent="green"]{--ac:#3B7A45; --ac-soft:#DEEBDA; --ac-border:#C4DEC0;}
+  [data-accent="coral"]{--ac:#B23A2E; --ac-soft:#F3DCD8; --ac-border:#E6C3BC;}
+  [data-accent="indigo"]{--ac:#5B4FA8; --ac-soft:#E3DFF3; --ac-border:#CFC7EA;}
+
+  /* ---------- topic page shell ---------- */
+  .topic-top{
+    position:sticky; top:0; z-index:10;
+    background:rgba(244,240,230,0.92); backdrop-filter:blur(6px);
+    border-bottom:1px solid var(--border-soft);
+    padding:14px 24px; display:flex; align-items:center; gap:14px; flex-wrap:wrap;
+  }
+  .home-btn{
+    background:none; border:1px solid var(--border); color:var(--ink-dim);
+    font-family:var(--mono); font-size:13px; padding:6px 12px; border-radius:6px; cursor:pointer;
+  }
+  .home-btn:hover{color:var(--ink); border-color:var(--ink-faint);}
+  .topic-badge{
+    width:26px; height:26px; border-radius:7px; background:var(--ac); color:var(--surface);
+    display:flex; align-items:center; justify-content:center; font-size:12.5px; font-weight:700;
+    font-family:var(--mono); flex:0 0 26px;
+  }
+  .topic-top .title{font-weight:600; font-size:15px; color:var(--ink);}
+
+  .topic-body{
+    max-width:1120px; margin:0 auto; padding:40px 24px 100px;
+    display:grid; grid-template-columns:220px 1fr; gap:56px; align-items:start;
+  }
+  @media (max-width:860px){
+    .topic-body{grid-template-columns:1fr; gap:24px;}
+    .sidebar{display:none;}
+  }
+
+  .sidebar{position:sticky; top:70px;}
+  .sidebar .group-label{
+    font-size:11px; color:var(--ink-faint); margin:18px 0 6px; font-weight:600;
+  }
+  .sidebar .group-label:first-child{margin-top:0;}
+  .sidebar a{
+    display:flex; align-items:center; gap:8px; font-size:13.5px; color:var(--ink-faint); text-decoration:none;
+    padding:6px 0 6px 12px; border-left:2px solid var(--border-soft);
+  }
+  .nav-emoji{font-size:13px; flex:0 0 auto;}
+  .sidebar a.active{color:var(--ac); border-left-color:var(--ac); font-weight:600;}
+  .sidebar a:hover{color:var(--ink);}
+
+  .content h1.page-title{font-size:30px; margin:0 0 6px; color:var(--ink);}
+  .content .page-sub{color:var(--ink-dim); font-size:15px; margin:0 0 24px;}
+
+  .section-grid{
+    display:grid; grid-template-columns:1fr 1fr; gap:10px; margin:0 0 44px;
+  }
+  @media (max-width:600px){.section-grid{grid-template-columns:1fr;}}
+  .section-grid button{
+    display:flex; align-items:flex-start; gap:10px;
+    text-align:left; background:var(--card); border:1px solid var(--border); border-radius:9px;
+    padding:12px 14px; cursor:pointer; font-family:var(--sans);
+  }
+  .section-grid button:hover{background:var(--card-hover);}
+  .g-emoji{font-size:17px; flex:0 0 auto; line-height:1.3;}
+  .section-grid .g-label{font-size:10.5px; color:var(--ink-faint); margin-bottom:3px;}
+  .section-grid .g-title{font-size:13.5px; color:var(--ink); font-weight:600;}
+
+  .content-section{margin-bottom:56px; scroll-margin-top:80px;}
+  .content-section h2{font-size:20px; margin:0 0 16px; padding-bottom:10px; border-bottom:1px solid var(--border); color:var(--ink);}
+  .content-section h4{font-size:14.5px; margin:22px 0 8px; color:var(--ink);}
+  .content-section p{color:var(--ink-dim); font-size:15px; max-width:74ch;}
+  .content-section p b{color:var(--ink); font-weight:600;}
+  .content-section code{background:var(--card); border:1px solid var(--border); border-radius:4px; padding:1px 6px; font-family:var(--mono); font-size:0.9em;}
+
+  .callout{
+    background:var(--surface); border:1px solid var(--border); border-radius:8px;
+    padding:16px 18px; margin:16px 0; font-size:14px; color:var(--ink-dim);
+  }
+  .callout.extra{border-left:3px solid var(--ac);}
+  .callout.extra .tag{
+    font-family:var(--mono); font-size:11px; color:var(--ac); display:block; margin-bottom:6px;
+  }
+
+  .tbl-wrap{overflow-x:auto; margin:16px 0; border-radius:8px; border:1px solid var(--border);}
+  table{border-collapse:collapse; width:100%; font-size:13.5px;}
+  table.mono td, table.mono th{font-family:var(--mono);}
+  th, td{border:1px solid var(--border); padding:8px 12px; text-align:left; white-space:nowrap;}
+  th{background:var(--card); color:var(--ink-dim); font-weight:600; font-size:12.5px;}
+  td{color:var(--ink); background:var(--surface);}
+
+  .pc-grid{display:grid; grid-template-columns:1fr 1fr; gap:16px;}
+  @media (max-width:600px){.pc-grid{grid-template-columns:1fr;}}
+  .pc-box{background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:16px 18px;}
+  .pc-box h4{margin:0 0 10px; font-size:13px;}
+  .pc-box.pros h4{color:var(--good);}
+  .pc-box.cons h4{color:var(--bad);}
+  .pc-box ul{margin:0; padding-left:18px; color:var(--ink-dim); font-size:13.5px;}
+  .pc-box li{margin-bottom:8px;}
+  .pc-box li b{color:var(--ink);}
+
+  .try-panel{background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:20px;}
+  .try-panel label{display:block; font-size:12.5px; color:var(--ink-dim); margin-bottom:6px;}
+  .try-panel textarea, .try-panel input[type=text], .try-panel input[type=number]{
+    width:100%; background:var(--bg); border:1px solid var(--border); border-radius:6px;
+    color:var(--ink); font-family:var(--mono); font-size:13.5px; padding:10px 12px;
+  }
+  .try-panel textarea{min-height:96px; resize:vertical;}
+  .try-row{display:flex; gap:16px; flex-wrap:wrap; margin-bottom:14px;}
+  .try-row > div{flex:1; min-width:220px;}
+  .run-btn{
+    background:var(--ac); color:var(--surface); border:none; border-radius:7px;
+    padding:9px 18px; font-weight:600; font-size:13.5px; cursor:pointer; font-family:var(--sans);
+  }
+  .run-btn:hover{opacity:0.88;}
+  .try-output{margin-top:18px;}
+  .vecline{font-family:var(--mono); font-size:13px; color:var(--ink-dim); margin:4px 0;}
+  .vecline b{color:var(--ac);}
+
+  .quiz-header{
+    display:flex; align-items:center; justify-content:space-between; gap:12px;
+    padding-bottom:10px; margin-bottom:16px; border-bottom:1px solid var(--border);
+  }
+  .reset-btn{
+    background:none; border:1px solid var(--border); color:var(--ink-dim);
+    font-size:12.5px; padding:6px 12px; border-radius:6px; cursor:pointer; font-family:var(--sans);
+    flex-shrink:0;
+  }
+  .reset-btn:hover{color:var(--ink); border-color:var(--ink-faint);}
+
+  .quiz-q{background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:16px 18px; margin-bottom:14px;}
+  .quiz-q p.qtext{margin:0 0 12px; color:var(--ink); font-size:14.5px; font-weight:600;}
+  .quiz-opt{
+    display:block; width:100%; text-align:left; background:var(--bg); border:1px solid var(--border);
+    color:var(--ink-dim); border-radius:7px; padding:9px 12px; margin-bottom:8px; cursor:pointer;
+    font-size:13.5px; font-family:var(--sans);
+  }
+  .quiz-opt:hover{border-color:var(--ac);}
+  .quiz-opt.correct{border-color:var(--good); color:var(--good); background:#E4F1E7; font-weight:600;}
+  .quiz-opt.wrong{border-color:var(--bad); color:var(--bad); background:#F5E3E0;}
+  .quiz-opt[disabled]{cursor:default;}
+  .quiz-explain{font-size:13px; color:var(--ink-dim); margin-top:8px; padding-top:8px; border-top:1px dashed var(--border); display:none;}
+  .quiz-explain.show{display:block;}  .page-footer{
+    margin-top:48px; padding-top:20px; border-top:1px solid var(--border);
+    display:flex; align-items:center; gap:12px;
+  }
+  .page-footer .fav{
+    width:38px; height:38px; border-radius:50%; background:var(--ac, #0E7C86); color:var(--surface);
+    display:flex; align-items:center; justify-content:center; font-weight:700; font-size:14px; flex:0 0 38px;
+  }
+  .page-footer .fname{font-size:14px; font-weight:600; color:var(--ink);}
+  .page-footer .flinks{display:flex; gap:14px; margin-top:2px;}
+  .page-footer .flinks a{font-size:12.5px; color:var(--ink-dim); text-decoration:none;}
+  .page-footer .flinks a:hover{color:var(--ac, #0E7C86); text-decoration:underline;}  .roadmap{position:relative; padding-left:30px; margin-top:20px;}
+  .roadmap::before{content:''; position:absolute; left:9px; top:6px; bottom:6px; width:2px; background:var(--border);}
+  .rm-item{position:relative; padding-bottom:22px;}
+  .rm-item:last-child{padding-bottom:0;}
+  .rm-dot{position:absolute; left:-30px; top:3px; width:14px; height:14px; border-radius:50%; background:var(--surface);}
+  .rm-item.covered .rm-dot{background:var(--ac); border:2px solid var(--ac);}
+  .rm-item.touched .rm-dot{background:var(--surface); border:2px solid var(--ac);}
+  .rm-item.next .rm-dot{background:var(--surface); border:2px dashed var(--ink-faint);}
+  .rm-title{font-weight:600; font-size:14.5px; color:var(--ink);}
+  .rm-tag{font-size:10.5px; margin-left:8px; padding:2px 8px; border-radius:10px; font-family:var(--mono); font-weight:400;}
+  .rm-tag.covered{background:var(--ac-soft); color:var(--ac);}
+  .rm-tag.touched{background:var(--card); color:var(--ink-dim); border:1px solid var(--border);}
+  .rm-tag.next{background:none; color:var(--ink-faint); border:1px dashed var(--border);}
+  .rm-desc{font-size:13px; color:var(--ink-dim); margin-top:2px;}
+</style>
+</head>
+<body>
+
+<div id="landing" class="view active">
+  <h1>Turning text into numbers<span>that actually mean something</span></h1>
+  <p class="lede">
+    Every NLP system starts with the same problem: <b>a machine can't read words, only numbers.</b>
+    This guide walks through the four ways text becomes numbers — from the simplest (a word is either
+    present or it isn't) to the kind that actually understands meaning.
+  </p>
+
+  <div class="card-grid">
+    <button class="topic-card" data-accent="cyan" onclick="openTopic('encoding')">
+      <div class="topic-icon">📐</div>
+      <div class="topic-copy">
+        <div class="kicker">Foundations</div>
+        <h3>Encoding &amp; Embedding</h3>
+        <p>Vectors, scalars, matrices — and the one distinction (meaning vs. no meaning) everything else builds on.</p>
+        <div class="open-link">open guide →</div>
+      </div>
+    </button>
+    <button class="topic-card" data-accent="amber" onclick="openTopic('ohe')">
+      <div class="topic-icon">🔡</div>
+      <div class="topic-copy">
+        <div class="kicker">Method 1</div>
+        <h3>One-Hot Encoding</h3>
+        <p>Is the word present or not? The simplest possible representation — and where it breaks down.</p>
+        <div class="open-link">open guide →</div>
+      </div>
+    </button>
+    <button class="topic-card" data-accent="green" onclick="openTopic('bow')">
+      <div class="topic-icon">🧺</div>
+      <div class="topic-copy">
+        <div class="kicker">Method 2</div>
+        <h3>Bag of Words</h3>
+        <p>How many times does the word appear? Frequency as a proxy for importance.</p>
+        <div class="open-link">open guide →</div>
+      </div>
+    </button>
+    <button class="topic-card" data-accent="coral" onclick="openTopic('tfidf')">
+      <div class="topic-icon">📊</div>
+      <div class="topic-copy">
+        <div class="kicker">Method 3</div>
+        <h3>TF-IDF</h3>
+        <p>How important is this word, really? Rare words earn more weight than common ones.</p>
+        <div class="open-link">open guide →</div>
+      </div>
+    </button>
+    <button class="topic-card" data-accent="indigo" onclick="openTopic('w2v')">
+      <div class="topic-icon">🧠</div>
+      <div class="topic-copy">
+        <div class="kicker">Method 4</div>
+        <h3>Word2Vec</h3>
+        <p>The first method here that actually learns meaning — CBOW, Skip-gram, and vector arithmetic.</p>
+        <div class="open-link">open guide →</div>
+      </div>
+    </button>
+  </div>
+
+  <div class="page-footer" id="footer-landing"></div>
+</div>
+
+<!-- ============ TOPIC: ENCODING & EMBEDDING ============ -->
+<div id="topic-encoding" class="view topic-page" data-accent="cyan">
+  <div class="topic-top">
+    <button class="home-btn" onclick="goHome()">← All topics</button>
+    <div class="topic-badge">1</div>
+    <span class="title">Encoding &amp; Embedding</span>
+  </div>
+  <div class="topic-body">
+    <nav class="sidebar" id="sidebar-encoding"></nav>
+    <main class="content">
+      <h1 class="page-title">Encoding &amp; Embedding</h1>
+      <p class="page-sub">The foundations everything else in this guide sits on top of.</p>
+      <div class="section-grid" id="grid-encoding"></div>
+
+      <section id="enc-vectors" class="content-section">
+        <h2>Vectors, scalars, and matrices</h2>
+        <p>A <b>scalar</b> is a single number — <code>5</code>. It has no direction, just magnitude. The moment you
+        have a set of numbers together, like <code>[5, 10]</code>, you have a <b>vector</b>. Stack several vectors
+        on top of each other and you get a <b>matrix</b> — literally a table of numbers, or "a collection of vectors."</p>
+        <div class="tbl-wrap">
+          <table class="mono">
+            <tr><th>Object</th><th>Example</th><th>Shape</th></tr>
+            <tr><td>Scalar</td><td>5</td><td>—</td></tr>
+            <tr><td>Vector</td><td>[1, 2, 3]</td><td>1 × 3</td></tr>
+            <tr><td>Matrix</td><td>[[1,2],[3,4]]</td><td>2 × 2</td></tr>
+          </table>
+        </div>
+        <p>In NLP, a vector is a <b>numerical representation of data in n-dimensional space</b>. An embedding is
+        just a vector that additionally captures meaning — direction and magnitude that reflect semantic relationships,
+        not just position.</p>
+        <p style="font-size:13.5px; color:var(--ink-faint);">One rung further up this ladder: stack multiple
+        matrices together and you get a <b>tensor</b> — the general term for "array of numbers with any number of
+        dimensions." A scalar is a 0-D tensor, a vector is 1-D, a matrix is 2-D. Frameworks like PyTorch and
+        TensorFlow use this term because deep learning routinely works with 3-D, 4-D, and higher arrays (a batch of
+        images, for instance, is a 4-D tensor: batch × height × width × color channels).</p>
+      </section>
+
+      <section id="enc-definitions" class="content-section">
+        <h2>What encoding and embedding actually mean</h2>
+        <p><b>Encoding</b> = converting raw data into numerical form (often sparse), <b>without necessarily
+        preserving semantic meaning.</b> It's count-based or matrix-factorization based: One-Hot Encoding, Bag of
+        Words, TF-IDF, N-grams.</p>
+        <p><b>Embedding</b> = a numerical representation that's dense, high-dimensional (typically
+        100 to a few thousand dimensions: 384, 768, 1024, 1536, 3072...), and <b>learned</b> by a neural network or
+        transformer rather than counted directly.</p>
+        <p>The cleaner way to say this: encoding is a <b>sparse, explicit</b> representation — you can point to
+        exactly why each number is what it is. Embedding is a <b>dense, learned</b> representation — the numbers
+        come out of training, not a counting rule. An embedding is still technically a kind of encoding; it's just
+        one where the numbers are learned rather than assigned by a fixed formula.</p>
+        <div class="callout">
+          Embeddings don't "contain" meaning the way a dictionary entry does — but semantic relationships tend to
+          <b>emerge geometrically</b> from training on large amounts of text. A useful gut-check:
+          <span class="vecline">embedding("king") vs. embedding("queen")</span> → small angle, small distance
+          (similar usage contexts). <span class="vecline">embedding("king") vs. embedding("banana")</span> →
+          large angle, large distance. Encoded vectors (OHE/BoW/TF-IDF) have no such property — two unrelated
+          words can sit at the exact same distance as two synonyms.
+        </div>
+      </section>
+
+      <section id="enc-comparison" class="content-section">
+        <h2>Encoding vs. embedding, side by side</h2>
+        <p>The table in the previous version of this guide said "semantic meaning: not preserved / preserved" and
+        "context awareness: not preserved / preserved" — too absolute. TF-IDF does carry useful statistical signal
+        (that's the whole point of it), and Word2Vec — a genuine embedding — is <i>not</i> context-aware in the
+        way modern transformer models are. The more accurate framing is about what's <i>usual</i>, not a hard
+        binary:</p>
+        <div class="tbl-wrap">
+          <table>
+            <tr><th>Feature</th><th>Sparse / explicit representation</th><th>Learned embedding</th></tr>
+            <tr><td>Representation</td><td>Usually sparse</td><td>Usually dense</td></tr>
+            <tr><td>How values arise</td><td>Rule- or count-based</td><td>Learned from data</td></tr>
+            <tr><td>Semantic relationships</td><td>Limited / indirect</td><td>Often emerge from training</td></tr>
+            <tr><td>Context awareness</td><td>Usually limited</td><td>Depends on the specific model</td></tr>
+            <tr><td>Example</td><td>OHE, BoW, TF-IDF</td><td>Word2Vec, BERT, modern embedding models</td></tr>
+          </table>
+        </div>
+      </section>
+
+      <section id="enc-similarity" class="content-section">
+        <h2>Similarity, semantic search &amp; where this is used</h2>
+        <p>Once data is a vector, "how similar are these two things?" becomes a geometry question, answered with
+        <b>cosine similarity</b>, <b>dot product</b>, or <b>Euclidean distance</b>. This is the entire basis of
+        <b>semantic search</b> — matching by meaning instead of exact words.</p>
+        <div class="tbl-wrap">
+          <table>
+            <tr><th>Keyword search</th><th>Semantic search</th></tr>
+            <tr><td>Matches exact words</td><td>Matches meaning via vector similarity</td></tr>
+            <tr><td>"reduce heart risk" ≠ "lower cardiovascular disease"</td><td>Correctly treats them as near-identical</td></tr>
+            <tr><td>Weak on paraphrasing</td><td>Strong on paraphrasing</td></tr>
+          </table>
+        </div>
+        <p>Applications that all reduce to "find the nearest vector": Google-style search, image search (Pinterest,
+        "a red car"), recommendations (Netflix, Amazon, Spotify), topic clustering, and <b>RAG</b> (Retrieval-Augmented
+        Generation) — retrieving relevant chunks before an LLM answers.</p>
+      </section>
+
+      <section id="enc-quiz" class="content-section">
+        <div class="quiz-header">
+          <h2 style="border:none; margin:0; padding:0;">Quick check</h2>
+          <button class="reset-btn" onclick="renderQuiz('encoding')">Reset quiz</button>
+        </div>
+        <div id="quiz-encoding"></div>
+      </section>
+
+      <div class="page-footer" id="footer-encoding"></div>
+    </main>
+  </div>
+</div>
+
+<!-- ============ TOPIC: OHE ============ -->
+<div id="topic-ohe" class="view topic-page" data-accent="amber">
+  <div class="topic-top">
+    <button class="home-btn" onclick="goHome()">← All topics</button>
+    <div class="topic-badge">2</div>
+    <span class="title">One-Hot Encoding</span>
+  </div>
+  <div class="topic-body">
+    <nav class="sidebar" id="sidebar-ohe"></nav>
+    <main class="content">
+      <h1 class="page-title">One-Hot Encoding</h1>
+      <p class="page-sub">"Is the word present, or not?" — the simplest possible answer to "text → numbers."</p>
+      <div class="section-grid" id="grid-ohe"></div>
+
+      <section id="ohe-concept" class="content-section">
+        <h2>The idea</h2>
+        <p>Build a <b>vocabulary</b> — the set of unique words across all your documents. Every document then
+        becomes a vector as long as the vocabulary, with a <code>1</code> where a word is present and <code>0</code>
+        everywhere else. Values are strictly <b>0 or 1</b> — presence, not frequency.</p>
+        <div class="callout">
+          A note on terminology: strict <b>one-hot encoding</b> means exactly one <code>1</code> in the whole
+          vector — that's how you'd encode a single token, or a single categorical label. The document-level
+          example below has <i>multiple</i> <code>1</code>s per row (one per word present in that document), which
+          makes it technically a <b>multi-hot / binary presence vector</b>, not strictly one-hot. In practice the
+          two terms get used loosely and interchangeably — worth knowing the distinction, especially if it comes up
+          in an interview.
+        </div>
+      </section>
+
+      <section id="ohe-example" class="content-section">
+        <h2>Worked example (from notes)</h2>
+        <p>Four documents:</p>
+        <div class="tbl-wrap">
+          <table class="mono">
+            <tr><td>D1</td><td>people watch movie</td></tr>
+            <tr><td>D2</td><td>people watch cricket</td></tr>
+            <tr><td>D3</td><td>people like movie</td></tr>
+            <tr><td>D4</td><td>people like cricket</td></tr>
+          </table>
+        </div>
+        <p>Vocabulary (5 unique words): <code>{people, watch, like, movie, cricket}</code> — this also fixes the
+        vector's dimension at 5.</p>
+        <div class="tbl-wrap">
+          <table class="mono">
+            <tr><th></th><th>people</th><th>watch</th><th>like</th><th>movie</th><th>cricket</th></tr>
+            <tr><td>D1</td><td>1</td><td>1</td><td>0</td><td>1</td><td>0</td></tr>
+            <tr><td>D2</td><td>1</td><td>1</td><td>0</td><td>0</td><td>1</td></tr>
+            <tr><td>D3</td><td>1</td><td>0</td><td>1</td><td>1</td><td>0</td></tr>
+            <tr><td>D4</td><td>1</td><td>0</td><td>1</td><td>0</td><td>1</td></tr>
+          </table>
+        </div>
+        <p>D1 → <code>[1,1,0,1,0]</code>, D2 → <code>[1,1,0,0,1]</code>, and so on. This is the
+        <b>document-level</b> representation. A <b>word-level (sequence)</b> version also exists — each word in a
+        sentence becomes its own one-hot row, producing a matrix like 3×5 for a 3-word sentence — used as the raw
+        input format feeding into sequence models (RNN / LSTM / GRU / attention) before embeddings took over.</p>
+      </section>
+
+      <section id="ohe-try" class="content-section">
+        <h2>Try it yourself</h2>
+        <div class="try-panel">
+          <label>Enter documents, one per line</label>
+          <textarea id="ohe-input">people watch movie
+people watch cricket
+people like movie
+people like cricket</textarea>
+          <div style="margin-top:12px;"><button class="run-btn" onclick="runOHE()">Generate one-hot vectors</button></div>
+          <div class="try-output" id="ohe-output"></div>
+        </div>
+      </section>
+
+      <section id="ohe-proscons" class="content-section">
+        <h2>Pros &amp; cons</h2>
+        <div class="pc-grid">
+          <div class="pc-box pros">
+            <h4>Pros</h4>
+            <ul>
+              <li>Easy to implement, <b>no training required</b></li>
+              <li>Simple binary representation — direct mapping</li>
+            </ul>
+          </div>
+          <div class="pc-box cons">
+            <h4>Cons</h4>
+            <ul>
+              <li><b>Sparse &amp; memory-wasteful</b> — a 10,000-word vocabulary means a vector like
+              <code>[1,1,0,1,0,0,...]</code> with 9,997 zeros for a 3-word document</li>
+              <li><b>High dimensionality</b> — vector size scales directly with vocabulary size</li>
+              <li><b>No semantic understanding</b> — "like" and "love" are as unrelated as "like" and "airplane"</li>
+              <li><b>OOV (out-of-vocabulary) problem</b> — D5 "people enjoy movie": <code>enjoy</code> was never in
+              the vocabulary, so it simply can't be represented</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section id="ohe-quiz" class="content-section">
+        <div class="quiz-header">
+          <h2 style="border:none; margin:0; padding:0;">Quick check</h2>
+          <button class="reset-btn" onclick="renderQuiz('ohe')">Reset quiz</button>
+        </div>
+        <div id="quiz-ohe"></div>
+      </section>
+
+      <div class="page-footer" id="footer-ohe"></div>
+    </main>
+  </div>
+</div>
+
+<!-- ============ TOPIC: BOW ============ -->
+<div id="topic-bow" class="view topic-page" data-accent="green">
+  <div class="topic-top">
+    <button class="home-btn" onclick="goHome()">← All topics</button>
+    <div class="topic-badge">3</div>
+    <span class="title">Bag of Words</span>
+  </div>
+  <div class="topic-body">
+    <nav class="sidebar" id="sidebar-bow"></nav>
+    <main class="content">
+      <h1 class="page-title">Bag of Words</h1>
+      <p class="page-sub">"How many times does this word appear?" — frequency as a stand-in for importance.</p>
+      <div class="section-grid" id="grid-bow"></div>
+
+      <section id="bow-concept" class="content-section">
+        <h2>The idea</h2>
+        <p>Same vocabulary-based structure as OHE, except each dimension now holds a <b>count</b> instead of a
+        0/1 flag. The underlying assumption — <i>"a word that repeats more is more important"</i> — is at best a
+        <b>crude proxy</b> for actual importance, not a reliable one. It ignores which word is repeating and why.</p>
+      </section>
+
+      <section id="bow-example" class="content-section">
+        <h2>Worked example (from notes)</h2>
+        <div class="tbl-wrap">
+          <table class="mono">
+            <tr><td>D1</td><td>people watch movie and watch movie again</td></tr>
+            <tr><td>D2</td><td>people watch cricket and watch cricket</td></tr>
+            <tr><td>D3</td><td>people like movie and like movie a lot</td></tr>
+            <tr><td>D4</td><td>people like cricket</td></tr>
+          </table>
+        </div>
+        <p>Vocabulary (8 words): <code>[again, and, cricket, like, lot, movie, people, watch]</code></p>
+        <div class="tbl-wrap">
+          <table class="mono">
+            <tr><th></th><th>again</th><th>and</th><th>cricket</th><th>like</th><th>lot</th><th>movie</th><th>people</th><th>watch</th></tr>
+            <tr><td>D1</td><td>1</td><td>1</td><td>0</td><td>0</td><td>0</td><td>2</td><td>1</td><td>2</td></tr>
+            <tr><td>D2</td><td>0</td><td>1</td><td>2</td><td>0</td><td>0</td><td>0</td><td>1</td><td>2</td></tr>
+            <tr><td>D3</td><td>0</td><td>1</td><td>0</td><td>2</td><td>1</td><td>2</td><td>1</td><td>0</td></tr>
+            <tr><td>D4</td><td>0</td><td>0</td><td>1</td><td>1</td><td>0</td><td>0</td><td>1</td><td>0</td></tr>
+          </table>
+        </div>
+      </section>
+
+      <section id="bow-try" class="content-section">
+        <h2>Try it yourself</h2>
+        <div class="try-panel">
+          <label>Enter documents, one per line</label>
+          <textarea id="bow-input">people watch movie and watch movie again
+people watch cricket and watch cricket
+people like movie and like movie a lot
+people like cricket</textarea>
+          <div style="margin-top:12px;"><button class="run-btn" onclick="runBOW()">Generate word-count vectors</button></div>
+          <div class="try-output" id="bow-output"></div>
+        </div>
+      </section>
+
+      <section id="bow-proscons" class="content-section">
+        <h2>Pros &amp; cons</h2>
+        <div class="pc-grid">
+          <div class="pc-box pros">
+            <h4>Pros</h4>
+            <ul>
+              <li>Easy to implement, no training required</li>
+              <li>Captures word frequency — useful for basic spam detection, text classification, sentiment (basic)</li>
+            </ul>
+          </div>
+          <div class="pc-box cons">
+            <h4>Cons</h4>
+            <ul>
+              <li><b>Ignores word order</b> — "dog bites man" and "man bites dog" produce the identical vector</li>
+              <li><b>No semantic understanding</b> — "like" and "love" share no relation in the vector</li>
+              <li><b>Sparse, high-dimensional</b> — vocabulary of 50,000 words means a 50,000-length vector, mostly zeros</li>
+              <li><b>OOV problem</b> — same as OHE</li>
+              <li><b>Overemphasizes frequent words</b> — "movie movie movie" scores high importance despite carrying no real meaning</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section id="bow-quiz" class="content-section">
+        <div class="quiz-header">
+          <h2 style="border:none; margin:0; padding:0;">Quick check</h2>
+          <button class="reset-btn" onclick="renderQuiz('bow')">Reset quiz</button>
+        </div>
+        <div id="quiz-bow"></div>
+      </section>
+
+      <div class="page-footer" id="footer-bow"></div>
+    </main>
+  </div>
+</div>
+
+<!-- ============ TOPIC: TF-IDF ============ -->
+<div id="topic-tfidf" class="view topic-page" data-accent="coral">
+  <div class="topic-top">
+    <button class="home-btn" onclick="goHome()">← All topics</button>
+    <div class="topic-badge">4</div>
+    <span class="title">TF-IDF</span>
+  </div>
+  <div class="topic-body">
+    <nav class="sidebar" id="sidebar-tfidf"></nav>
+    <main class="content">
+      <h1 class="page-title">TF-IDF</h1>
+      <p class="page-sub">Term Frequency × Inverse Document Frequency — "how important is this word, really?"</p>
+      <div class="section-grid" id="grid-tfidf"></div>
+
+      <section id="tfidf-formula" class="content-section">
+        <h2>The formula</h2>
+        <div class="tbl-wrap">
+          <table class="mono">
+            <tr><td>TF(word, D)</td><td>= (occurrences of word in D) / (total words in D)</td></tr>
+            <tr><td>IDF(word)</td><td>= log( total number of documents / documents containing the word )</td></tr>
+            <tr><td>TF-IDF(word, D)</td><td>= TF(word, D) × IDF(word)</td></tr>
+          </table>
+        </div>
+        <p><b>TF</b> tells you how important a word is <i>within one document</i>. <b>IDF</b> tells you how important
+        (i.e. rare) that word is <i>across the whole corpus</i> — common words are penalized, rare words are boosted.
+        Multiplying the two gives a score that balances how frequently a term appears in this document against how
+        rare it is across the corpus.</p>
+      </section>
+
+      <section id="tfidf-why" class="content-section">
+        <h2>Why the log in IDF?</h2>
+        <p>Without a log, IDF = N/DF produces wildly extreme values. Assume 1,000 total documents:</p>
+        <div class="tbl-wrap">
+          <table class="mono">
+            <tr><th>Word appears in</th><th>N/DF</th><th>log(N/DF)</th></tr>
+            <tr><td>1 document (rare)</td><td>1000</td><td>≈ 6.9</td></tr>
+            <tr><td>10 documents</td><td>100</td><td>≈ 4.6</td></tr>
+            <tr><td>500 documents (common)</td><td>2</td><td>≈ 0.69</td></tr>
+          </table>
+        </div>
+        <p>Without the log, <code>1000 vs. 100 vs. 2</code> lets one rare word's score swamp every other word's by
+        two to three orders of magnitude. The log compresses that range while preserving the same order — rare
+        words still score higher than common ones, just not by an absurd, disproportionate margin.</p>
+      </section>
+
+      <section id="tfidf-example" class="content-section">
+        <h2>Worked example (from notes)</h2>
+        <div class="tbl-wrap">
+          <table class="mono">
+            <tr><td>D1</td><td>people watch cricket</td></tr>
+            <tr><td>D2</td><td>cricket watch cricket</td></tr>
+            <tr><td>D3</td><td>people give comment</td></tr>
+            <tr><td>D4</td><td>cricket give comment</td></tr>
+          </table>
+        </div>
+        <p>Vocabulary: <code>[comment, cricket, give, people, watch]</code>. Final TF-IDF matrix (natural log, rounded to 3 decimals):</p>
+        <div class="tbl-wrap">
+          <table class="mono">
+            <tr><th></th><th>comment</th><th>cricket</th><th>give</th><th>people</th><th>watch</th></tr>
+            <tr><td>D1</td><td>0</td><td>0.096</td><td>0</td><td>0.231</td><td>0.231</td></tr>
+            <tr><td>D2</td><td>0</td><td>0.191</td><td>0</td><td>0</td><td>0.231</td></tr>
+            <tr><td>D3</td><td>0.231</td><td>0</td><td>0.231</td><td>0.231</td><td>0</td></tr>
+            <tr><td>D4</td><td>0.231</td><td>0.096</td><td>0.231</td><td>0</td><td>0</td></tr>
+          </table>
+        </div>
+        <p>Notice "cricket" scores <i>lower</i> than "people," "give," or "watch" even though it appears more often
+        overall — because it also appears in more documents, so IDF pulls its weight down. That's TF-IDF working as
+        intended: frequent-everywhere ≠ important.</p>
+      </section>
+
+      <section id="tfidf-try" class="content-section">
+        <h2>Try it yourself</h2>
+        <div class="try-panel">
+          <label>Enter documents, one per line</label>
+          <textarea id="tfidf-input">people watch cricket
+cricket watch cricket
+people give comment
+cricket give comment</textarea>
+          <div style="margin-top:12px;"><button class="run-btn" onclick="runTFIDF()">Compute TF-IDF</button></div>
+          <div class="try-output" id="tfidf-output"></div>
+        </div>
+      </section>
+
+      <section id="tfidf-apps" class="content-section">
+        <h2>Where it's used</h2>
+        <p>Search engines and information retrieval (an early ranking signal, later extended by algorithms like
+        <b>BM25</b>, a ranking method built on top of TF-IDF ideas), document ranking, and as a lightweight
+        feature set for classical ML text classifiers (Naive Bayes, Logistic Regression) before embeddings became
+        standard.</p>
+      </section>
+
+      <section id="tfidf-quiz" class="content-section">
+        <div class="quiz-header">
+          <h2 style="border:none; margin:0; padding:0;">Quick check</h2>
+          <button class="reset-btn" onclick="renderQuiz('tfidf')">Reset quiz</button>
+        </div>
+        <div id="quiz-tfidf"></div>
+      </section>
+
+      <div class="page-footer" id="footer-tfidf"></div>
+    </main>
+  </div>
+</div>
+
+<!-- ============ TOPIC: WORD2VEC ============ -->
+<div id="topic-w2v" class="view topic-page" data-accent="indigo">
+  <div class="topic-top">
+    <button class="home-btn" onclick="goHome()">← All topics</button>
+    <div class="topic-badge">5</div>
+    <span class="title">Word2Vec</span>
+  </div>
+  <div class="topic-body">
+    <nav class="sidebar" id="sidebar-w2v"></nav>
+    <main class="content">
+      <h1 class="page-title">Word2Vec</h1>
+      <p class="page-sub">Google, 2013. The first method in this guide that actually learns meaning, not just counts.</p>
+      <div class="section-grid" id="grid-w2v"></div>
+
+      <section id="w2v-concept" class="content-section">
+        <h2>The idea</h2>
+        <div class="callout">
+          The throughline for this whole guide: <b>sparse representation → dense representation → semantic
+          relationships.</b> OHE, BoW, and TF-IDF are all sparse and count-based — no meaning, just presence or
+          frequency. Word2Vec is the first method here that's dense and <i>learned</i> — and semantic structure
+          falls out of that learning process.
+        </div>
+        <p>Every method so far treats words as isolated symbols — OHE, BoW, and TF-IDF all produce
+        <code>"like" ≠ "love"</code>. Word2Vec instead trains a small neural network to predict words from their
+        surrounding context, and the <b>by-product</b> of that training — the learned weights — becomes each word's
+        embedding. The result: <code>"like" ≈ "love"</code>, <code>"movie" ≈ "film"</code>.</p>
+        <p>The whole approach rests on one idea, the <b>distributional hypothesis</b>: <i>words that appear in
+        similar contexts tend to have similar meaning.</i> Word2Vec doesn't have any dictionary of definitions —
+        it only ever sees which words show up near which other words, millions of times over. Everything else
+        (synonyms clustering together, king−man+woman≈queen) is a consequence of that one assumption holding up
+        well in practice.</p>
+        <p>Word2Vec comes in two architectures, both defined by how training pairs are built from raw text:</p>
+        <div class="tbl-wrap">
+          <table>
+            <tr><th>CBOW (Continuous Bag of Words)</th><th>Skip-gram</th></tr>
+            <tr><td>Input: surrounding context words</td><td>Input: the target (center) word</td></tr>
+            <tr><td>Output: the target (center) word</td><td>Output: the surrounding context words</td></tr>
+            <tr><td>Faster to train, better for frequent words</td><td>Slower, better for rare words</td></tr>
+          </table>
+        </div>
+        <p style="font-size:13.5px; color:var(--ink-faint);">Each individual context→target (or target→context) pair
+        is one training example — but "one pair = one forward pass" is a simplification. In practice, examples are
+        usually grouped into small <b>mini-batches</b> (say, 32 or 256 pairs at once) and processed together for
+        efficiency, with weights updated once per batch rather than once per single pair. The underlying idea is
+        identical either way — this is purely an implementation detail for speed.</p>
+      </section>
+
+      <section id="w2v-window" class="content-section">
+        <h2>Window size &amp; context</h2>
+        <p>The <b>window size</b> decides how many neighboring words count as "context" around a target word.
+        For <code>I love deep learning</code> with window size 1, the target <code>love</code> has context
+        <code>{I, deep}</code>. With window size 2, its context grows to <code>{I, deep, learning}</code>. Note
+        the target at either edge of a sentence simply has a smaller context — <code>I</code> only ever has words
+        to its right, since there's nothing to its left. Context windows don't cross sentence boundaries either:
+        the last word of one sentence isn't treated as context for the first word of the next.</p>
+        <div class="callout">
+          Window size is a <b>hyperparameter</b> — commonly tried at 5, 10, 15, 20. Push it too high and context
+          keeps growing, but so does noise: distant, less-related words start diluting the genuinely close
+          relationships you actually want captured.
+        </div>
+      </section>
+
+      <section id="w2v-try" class="content-section">
+        <h2>Try it yourself</h2>
+        <div class="try-panel">
+          <div class="try-row">
+            <div>
+              <label>Enter a sentence</label>
+              <input type="text" id="w2v-input" value="I love deep learning">
+            </div>
+            <div style="flex:0 0 140px; min-width:140px;">
+              <label>Window size</label>
+              <input type="number" id="w2v-window-input" value="1" min="1" max="5">
+            </div>
+          </div>
+          <button class="run-btn" onclick="runW2V()">Generate training pairs</button>
+          <div class="try-output" id="w2v-output"></div>
+        </div>
+      </section>
+
+      <section id="w2v-nn" class="content-section">
+        <h2>Neural network basics</h2>
+        <p>Word2Vec's "neural network" is less intimidating than it sounds: a small, fully-connected network with
+        exactly <b>one hidden layer</b>. Understanding it here also explains what's happening — at a much larger
+        scale — inside every transformer model down the line.</p>
+
+        <h4>The three layers</h4>
+        <div class="tbl-wrap">
+          <table>
+            <tr><th>Layer</th><th>What it holds</th></tr>
+            <tr><td><b>Input layer</b></td><td>One neuron per vocabulary word, fed as a one-hot vector — exactly one neuron is "1," the rest are "0"</td></tr>
+            <tr><td><b>Hidden layer</b></td><td>Its size (e.g. 300 neurons) is a hyperparameter you choose. Once training finishes, this layer's weight matrix — one row per word — <i>is</i> the embedding table</td></tr>
+            <tr><td><b>Output layer</b></td><td>Same size as the vocabulary again — a probability score for every word, i.e. the network's guess for what belongs in that slot</td></tr>
+          </table>
+        </div>
+
+        <div class="tbl-wrap" style="border:none; background:none;">
+          <svg viewBox="0 0 700 340" style="width:100%; height:auto; max-width:640px; display:block; margin:20px auto;" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <marker id="arrowFwd" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+                <path d="M0,0 L6,3 L0,6 Z" fill="#5B4FA8"/>
+              </marker>
+              <marker id="arrowBack" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+                <path d="M6,0 L0,3 L6,6 Z" fill="#B23A2E"/>
+              </marker>
+            </defs>
+
+            <!-- connecting lines: input -> hidden -->
+            <g stroke="#DCD3B8" stroke-width="1">
+              <line x1="102" y1="60" x2="338" y2="95"/><line x1="102" y1="60" x2="338" y2="165"/><line x1="102" y1="60" x2="338" y2="235"/>
+              <line x1="102" y1="130" x2="338" y2="95"/><line x1="102" y1="130" x2="338" y2="165"/><line x1="102" y1="130" x2="338" y2="235"/>
+              <line x1="102" y1="200" x2="338" y2="95"/><line x1="102" y1="200" x2="338" y2="165"/><line x1="102" y1="200" x2="338" y2="235"/>
+              <line x1="102" y1="270" x2="338" y2="95"/><line x1="102" y1="270" x2="338" y2="165"/><line x1="102" y1="270" x2="338" y2="235"/>
+            </g>
+            <!-- connecting lines: hidden -> output -->
+            <g stroke="#DCD3B8" stroke-width="1">
+              <line x1="362" y1="95" x2="598" y2="60"/><line x1="362" y1="95" x2="598" y2="130"/><line x1="362" y1="95" x2="598" y2="200"/><line x1="362" y1="95" x2="598" y2="270"/>
+              <line x1="362" y1="165" x2="598" y2="60"/><line x1="362" y1="165" x2="598" y2="130"/><line x1="362" y1="165" x2="598" y2="200"/><line x1="362" y1="165" x2="598" y2="270"/>
+              <line x1="362" y1="235" x2="598" y2="60"/><line x1="362" y1="235" x2="598" y2="130"/><line x1="362" y1="235" x2="598" y2="200"/><line x1="362" y1="235" x2="598" y2="270"/>
+            </g>
+
+            <!-- input nodes -->
+            <g>
+              <circle cx="90" cy="60" r="12" fill="#FBF8F1" stroke="#2A2620"/>
+              <circle cx="90" cy="130" r="12" fill="#FBF8F1" stroke="#2A2620"/>
+              <circle cx="90" cy="200" r="12" fill="#FBF8F1" stroke="#2A2620"/>
+              <circle cx="90" cy="270" r="12" fill="#FBF8F1" stroke="#2A2620"/>
+            </g>
+            <!-- hidden nodes -->
+            <g>
+              <circle cx="350" cy="95" r="12" fill="#E3DFF3" stroke="#5B4FA8" stroke-width="2"/>
+              <circle cx="350" cy="165" r="12" fill="#E3DFF3" stroke="#5B4FA8" stroke-width="2"/>
+              <circle cx="350" cy="235" r="12" fill="#E3DFF3" stroke="#5B4FA8" stroke-width="2"/>
+            </g>
+            <!-- output nodes -->
+            <g>
+              <circle cx="610" cy="60" r="12" fill="#FBF8F1" stroke="#2A2620"/>
+              <circle cx="610" cy="130" r="12" fill="#FBF8F1" stroke="#2A2620"/>
+              <circle cx="610" cy="200" r="12" fill="#FBF8F1" stroke="#2A2620"/>
+              <circle cx="610" cy="270" r="12" fill="#FBF8F1" stroke="#2A2620"/>
+            </g>
+
+            <!-- layer labels -->
+            <text x="90" y="310" text-anchor="middle" font-size="12" fill="#2A2620" font-weight="600">Input layer</text>
+            <text x="90" y="326" text-anchor="middle" font-size="10.5" fill="#6B6250">one-hot, size = vocab</text>
+            <text x="350" y="310" text-anchor="middle" font-size="12" fill="#5B4FA8" font-weight="600">Hidden layer</text>
+            <text x="350" y="326" text-anchor="middle" font-size="10.5" fill="#6B6250">size = embedding dim</text>
+            <text x="610" y="310" text-anchor="middle" font-size="12" fill="#2A2620" font-weight="600">Output layer</text>
+            <text x="610" y="326" text-anchor="middle" font-size="10.5" fill="#6B6250">softmax over vocab</text>
+
+            <!-- forward pass arrow -->
+            <line x1="90" y1="22" x2="608" y2="22" stroke="#5B4FA8" stroke-width="1.5" marker-end="url(#arrowFwd)"/>
+            <text x="350" y="14" text-anchor="middle" font-size="12" fill="#5B4FA8" font-weight="600">forward pass →</text>
+
+            <!-- backward pass arrow -->
+            <line x1="608" y1="298" x2="92" y2="298" stroke="#B23A2E" stroke-width="1.5" stroke-dasharray="4 3" marker-end="url(#arrowBack)"/>
+            <text x="350" y="292" text-anchor="middle" font-size="12" fill="#B23A2E" font-weight="600">← backward pass (adjusts weights)</text>
+          </svg>
+        </div>
+
+        <h4>Forward propagation (the forward pass)</h4>
+        <p>Every connection between two neurons carries a <b>weight</b>. At each neuron: multiply every incoming
+        value by its weight, sum them, add a <b>bias</b>, then pass the result through an <b>activation
+        function</b> — in short, <code>Activation(W·x + b)</code>. Do this layer by layer, left to right, until
+        you reach the output layer. That entire left-to-right pass is one <b>forward pass</b>.</p>
+
+        <h4>Loss</h4>
+        <p>Compare the output layer's prediction against the actual target word. The gap between them is the
+        <b>loss</b> — a single number that says how wrong the guess was. High loss = the network's current weights
+        are far from correct for this example. For a prediction task like this (predicting one word out of a
+        vocabulary), the specific loss function is almost always <b>cross-entropy</b> — also called negative
+        log-likelihood — which penalizes the network more heavily the more confidently wrong it was.</p>
+
+        <h4>Backward propagation &amp; epoch</h4>
+        <p>The <b>backward pass</b> (backpropagation) takes that loss and works right-to-left back through the
+        network, calculating how much each individual weight contributed to the error. An <b>optimizer</b>
+        (commonly gradient descent) then nudges every weight slightly in the direction that reduces the loss.</p>
+        <div class="callout">
+          <b>Epoch, precisely:</b> one epoch = one complete pass <i>through the entire training dataset</i> — not
+          a single forward+backward pass. Within that one epoch, many individual forward/backward passes happen —
+          one per training example, or one per mini-batch if examples are processed in small groups — each one
+          nudging the weights a little. Weights start random → train for many epochs → loss keeps dropping → you
+          converge on the best possible set of weights. For Word2Vec specifically, that final hidden-layer weight
+          matrix <i>is</i> the embedding table used everywhere else in this guide.
+        </div>
+      </section>
+
+      <section id="w2v-negsampling" class="content-section">
+        <h2>Negative sampling</h2>
+        <p>There's a practical problem with training the way described above: the output layer is the size of the
+        <i>entire vocabulary</i>. For every single training pair, computing a full probability distribution over
+        50,000+ words (softmax) and backpropagating through all of them is extremely expensive — and most of those
+        words had nothing to do with the current example anyway.</p>
+        <p><b>Negative sampling</b> is the fix Word2Vec actually uses in practice. Instead of updating weights for
+        the entire vocabulary on every step:</p>
+        <ul style="color:var(--ink-dim); font-size:15px;">
+          <li>Keep the one real <b>positive pair</b> (the actual context/target word) — the network should learn
+          to score this high.</li>
+          <li>Randomly sample a handful (typically 5–20) of <b>negative pairs</b> — words that were <i>not</i>
+          actually nearby — and train the network to score these low instead.</li>
+          <li>Update weights only for those few words, not all 50,000+.</li>
+        </ul>
+        <p>This turns an expensive "which one of 50,000 words is correct?" problem into a cheap "is this specific
+        word right or wrong?" problem, repeated a handful of times — orders of magnitude faster, with barely any
+        loss in embedding quality. A related, less commonly used alternative is <b>hierarchical softmax</b>, which
+        organizes the vocabulary into a binary tree so a prediction only needs to walk down one path of that tree
+        (roughly <code>log(V)</code> steps) instead of scoring every word — both approaches solve the same
+        scalability problem, just differently.</p>
+      </section>
+
+      <section id="w2v-arch" class="content-section">
+        <h2>How this applies to Word2Vec specifically</h2>
+        <p>Each training pair (context → target for CBOW, or target → context for Skip-gram) is one forward-pass
+        example. The network predicts a word, compares it to the actual target, and backpropagates the error —
+        exactly as described above. The only Word2Vec-specific choice is the <b>hidden layer size</b>: pick 300
+        neurons, and you get 300-dimensional embeddings (Google's pretrained vectors use exactly this). The
+        prediction task itself is never used again after training — it was only ever the mechanism for forcing
+        the hidden layer to learn useful weights.</p>
+
+        <h4>Why "hidden layer = embedding" is actually true — the matrix view</h4>
+        <p>This is the part that's easy to state but not obvious <i>why</i> it's true. Let the weight matrix
+        between the input and hidden layer be <code>W</code>, with shape <code>V × D</code> (<code>V</code> =
+        vocabulary size, <code>D</code> = embedding dimension). A one-hot input vector <code>x</code> has a single
+        <code>1</code> at the position of one word and zeros everywhere else.</p>
+        <div class="tbl-wrap">
+          <table class="mono">
+            <tr><td>x · W = h</td><td>W ∈ ℝ^(V×D),  x is one-hot (1×V),  h is the word's embedding (1×D)</td></tr>
+          </table>
+        </div>
+        <p>With actual numbers: a 10,000-word vocabulary and a 300-dimensional embedding gives
+        <code>x</code> shape <b>1 × 10,000</b>, <code>W</code> shape <b>10,000 × 300</b>, and the product
+        <code>xW = h</code> shape <b>1 × 300</b> — a 300-dimensional vector. That's the word's embedding.</p>
+        <p>Multiplying a one-hot vector by <code>W</code> zeroes out every row of <code>W</code> except the one
+        matching that word's position — the matrix multiplication reduces to <b>picking out a single row of
+        W</b>. That's the whole trick: the "hidden layer computation" for a one-hot input is mathematically
+        identical to an <b>embedding lookup</b>. This is exactly why production systems don't bother doing the
+        matrix multiplication at all — they just index directly into the embedding table.</p>
+        <div class="callout">
+          The pipeline this sets up, which carries all the way into modern LLMs: <b>text → tokens → token IDs →
+          embedding lookup → vectors.</b> Word2Vec's one-hot-times-matrix is the simple version of this. Modern
+          transformer models (BERT, GPT) use the exact same lookup step, then add something Word2Vec doesn't have —
+          <i>context-dependent</i> vectors, where the embedding for a word shifts based on the sentence around it.
+          That's the next layer of this story, beyond what these four classes covered.
+        </div>
+      </section>
+
+      <section id="w2v-arithmetic" class="content-section">
+        <h2>Vector arithmetic — a demonstration, not a proof</h2>
+        <p>The clearest illustration that Word2Vec embeddings encode <i>relational structure</i>, not just
+        similarity, is that they support arithmetic. The textbook case is
+        <code>King − Man + Woman ≈ Queen</code> — worth treating as a famous, genuinely useful demonstration of
+        how relationships (like "royalty" or "gender") sit along consistent directions in the embedding space,
+        rather than as formal proof that embeddings "understand" meaning. Your notes illustrate this with a
+        simplified, manually-assigned 5-feature table (Gender, Wealth, Power, Weight, Speak) — not real trained
+        embeddings, but useful for building intuition:</p>
+        <div class="tbl-wrap">
+          <table class="mono">
+            <tr><th></th><th>Gender</th><th>Wealth</th><th>Power</th><th>Weight</th><th>Speak</th></tr>
+            <tr><td>King</td><td>1</td><td>1</td><td>0.99</td><td>0.7</td><td>1</td></tr>
+            <tr><td>Man</td><td>1</td><td>0.5</td><td>0.4</td><td>0.7</td><td>1</td></tr>
+            <tr><td>Woman</td><td>1</td><td>0.4</td><td>0.3</td><td>0.8</td><td>1</td></tr>
+            <tr><td>Queen (actual)</td><td>1</td><td>0.8</td><td>0.7</td><td>0.8</td><td>1</td></tr>
+          </table>
+        </div>
+        <div class="callout extra">
+          <span class="tag">worked out</span>
+          King − Man + Woman = [1−1+1, 1−0.5+0.4, 0.99−0.4+0.3, 0.7−0.7+0.8, 1−1+1] =
+          <b>[1, 0.9, 0.89, 0.8, 1]</b> — versus Queen's actual <b>[1, 0.8, 0.7, 0.8, 1]</b>. Close, but not exact.
+          That gap is expected: this table's numbers were assigned by hand as a teaching aid, not learned from data.
+          Real Word2Vec embeddings (300 dimensions, learned from millions of sentences) reproduce this
+          king–man+woman≈queen pattern far more precisely — the manual version just makes the underlying logic visible.
+        </div>
+      </section>
+
+      <section id="w2v-proscons" class="content-section">
+        <h2>Pros &amp; cons</h2>
+        <div class="pc-grid">
+          <div class="pc-box pros">
+            <h4>Pros</h4>
+            <ul>
+              <li><b>Efficient &amp; fast</b> — a shallow network, no deep layers</li>
+              <li><b>Semantic understanding</b> — king ≈ queen, car ≈ vehicle</li>
+              <li><b>Vector arithmetic</b> — king − man + woman ≈ queen</li>
+              <li>Pretrained embeddings available (e.g. Google News 300-dim) — reusable without retraining</li>
+              <li>General-purpose: usable in NLP pipelines, classical ML models, clustering, search</li>
+            </ul>
+          </div>
+          <div class="pc-box cons">
+            <h4>Cons</h4>
+            <ul>
+              <li><b>Context-independent</b> — "bank" gets the same vector whether it means a riverbank or a
+              finance bank</li>
+              <li><b>Static embeddings</b> — fixed once trained, can't adapt to sentence context</li>
+              <li><b>OOV problem</b> — a brand-new word has no vector at all</li>
+              <li><b>No subword understanding</b> — "running," "runner," "runs" are treated as unrelated tokens
+              (FastText improved on this by averaging subword vectors)</li>
+              <li>Superseded for context-sensitivity by transformer-based models (BERT, GPT), which generate a
+              <i>different</i> vector for "bank" depending on the sentence</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section id="w2v-roadmap" class="content-section">
+        <h2>Where this guide sits in the bigger picture</h2>
+        <p>Everything in this guide — OHE through Word2Vec — is <b>traditional NLP</b>. It's the right foundation,
+        but it's a foundation. The map below shows what comes next; the later stages aren't explained in depth
+        here (that's intentionally out of scope for four classes of notes), but knowing the shape of the whole
+        path matters for framing an AI TPM narrative.</p>
+        <div class="roadmap">
+          <div class="rm-item covered"><div class="rm-dot"></div>
+            <div class="rm-title">One-Hot Encoding <span class="rm-tag covered">covered</span></div>
+            <div class="rm-desc">Presence, 0/1 per vocabulary word</div></div>
+          <div class="rm-item covered"><div class="rm-dot"></div>
+            <div class="rm-title">Bag of Words <span class="rm-tag covered">covered</span></div>
+            <div class="rm-desc">Word counts as a frequency signal</div></div>
+          <div class="rm-item covered"><div class="rm-dot"></div>
+            <div class="rm-title">TF-IDF <span class="rm-tag covered">covered</span></div>
+            <div class="rm-desc">Count, weighted down by how common the word is</div></div>
+          <div class="rm-item covered"><div class="rm-dot"></div>
+            <div class="rm-title">Word2Vec — static embeddings <span class="rm-tag covered">covered</span></div>
+            <div class="rm-desc">This page — learned, dense, but one fixed vector per word</div></div>
+          <div class="rm-item next"><div class="rm-dot"></div>
+            <div class="rm-title">Contextual embeddings <span class="rm-tag next">next module</span></div>
+            <div class="rm-desc">Same word, different vector depending on the sentence around it</div></div>
+          <div class="rm-item next"><div class="rm-dot"></div>
+            <div class="rm-title">Transformers <span class="rm-tag next">next module</span></div>
+            <div class="rm-desc">The attention mechanism behind BERT, GPT, and everything current</div></div>
+          <div class="rm-item next"><div class="rm-dot"></div>
+            <div class="rm-title">Modern embedding models <span class="rm-tag next">next module</span></div>
+            <div class="rm-desc">OpenAI, Cohere, Gemini, and similar production embedding APIs</div></div>
+          <div class="rm-item next"><div class="rm-dot"></div>
+            <div class="rm-title">Vector database <span class="rm-tag next">next module</span></div>
+            <div class="rm-desc">Storing millions of embeddings for fast similarity lookup</div></div>
+          <div class="rm-item touched"><div class="rm-dot"></div>
+            <div class="rm-title">Semantic search <span class="rm-tag touched">touched on</span></div>
+            <div class="rm-desc">Briefly covered — see Encoding &amp; Embedding → Foundations</div></div>
+          <div class="rm-item touched"><div class="rm-dot"></div>
+            <div class="rm-title">RAG (Retrieval-Augmented Generation) <span class="rm-tag touched">touched on</span></div>
+            <div class="rm-desc">Briefly covered — see Encoding &amp; Embedding → Foundations</div></div>
+        </div>
+      </section>
+
+      <section id="w2v-quiz" class="content-section">
+        <div class="quiz-header">
+          <h2 style="border:none; margin:0; padding:0;">Quick check</h2>
+          <button class="reset-btn" onclick="renderQuiz('w2v')">Reset quiz</button>
+        </div>
+        <div id="quiz-w2v"></div>
+      </section>
+
+      <div class="page-footer" id="footer-w2v"></div>
+    </main>
+  </div>
+</div>
+
+<script>
+/* ============ navigation ============ */
+function openTopic(id){
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  document.getElementById('topic-'+id).classList.add('active');
+  window.scrollTo(0,0);
+  setTimeout(updateActiveSection, 0);
+}
+function goHome(){
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  document.getElementById('landing').classList.add('active');
+  window.scrollTo(0,0);
+}
+function jumpTo(id){
+  const el = document.getElementById(id);
+  if(el) el.scrollIntoView({behavior:'smooth', block:'start'});
+}
+
+/* ============ sidebar + on-page grid generation ============ */
+const SECTION_MAP = {
+  encoding: [
+    {group:'Foundations', items:[{id:'enc-vectors', emoji:'🔢', label:'Vectors, scalars, matrices'},{id:'enc-definitions', emoji:'📖', label:'Encoding vs. embedding'},{id:'enc-comparison', emoji:'⚖️', label:'Side-by-side comparison'}]},
+    {group:'Application', items:[{id:'enc-similarity', emoji:'🔍', label:'Similarity & semantic search'}]},
+    {group:'Review', items:[{id:'enc-quiz', emoji:'✅', label:'Quiz'}]}
+  ],
+  ohe: [
+    {group:'Concept', items:[{id:'ohe-concept', emoji:'💡', label:'The idea'},{id:'ohe-example', emoji:'🧮', label:'Worked example'}]},
+    {group:'Hands-on', items:[{id:'ohe-try', emoji:'🛠️', label:'Try it yourself'}]},
+    {group:'Reference', items:[{id:'ohe-proscons', emoji:'⚖️', label:'Pros & cons'},{id:'ohe-quiz', emoji:'✅', label:'Quiz'}]}
+  ],
+  bow: [
+    {group:'Concept', items:[{id:'bow-concept', emoji:'💡', label:'The idea'},{id:'bow-example', emoji:'🧮', label:'Worked example'}]},
+    {group:'Hands-on', items:[{id:'bow-try', emoji:'🛠️', label:'Try it yourself'}]},
+    {group:'Reference', items:[{id:'bow-proscons', emoji:'⚖️', label:'Pros & cons'},{id:'bow-quiz', emoji:'✅', label:'Quiz'}]}
+  ],
+  tfidf: [
+    {group:'Concept', items:[{id:'tfidf-formula', emoji:'🧮', label:'Formula'},{id:'tfidf-why', emoji:'❓', label:'Why the log?'},{id:'tfidf-example', emoji:'📊', label:'Worked example'}]},
+    {group:'Hands-on', items:[{id:'tfidf-try', emoji:'🛠️', label:'Try it yourself'}]},
+    {group:'Reference', items:[{id:'tfidf-apps', emoji:'🌐', label:"Where it's used"},{id:'tfidf-quiz', emoji:'✅', label:'Quiz'}]}
+  ],
+  w2v: [
+    {group:'Concept', items:[{id:'w2v-concept', emoji:'💡', label:'The idea'},{id:'w2v-window', emoji:'🪟', label:'Window size & context'}]},
+    {group:'Hands-on', items:[{id:'w2v-try', emoji:'🛠️', label:'Try it yourself'}]},
+    {group:'How it works', items:[{id:'w2v-nn', emoji:'🧠', label:'Neural network basics'},{id:'w2v-negsampling', emoji:'🎯', label:'Negative sampling'},{id:'w2v-arch', emoji:'⚙️', label:'Applied to Word2Vec'},{id:'w2v-arithmetic', emoji:'➕', label:'Vector arithmetic'}]},
+    {group:'Reference', items:[{id:'w2v-proscons', emoji:'⚖️', label:'Pros & cons'},{id:'w2v-roadmap', emoji:'🗺️', label:"What's next"},{id:'w2v-quiz', emoji:'✅', label:'Quiz'}]}
+  ]
+};
+
+function renderNav(topicId){
+  const groups = SECTION_MAP[topicId];
+  const sidebar = document.getElementById('sidebar-'+topicId);
+  const grid = document.getElementById('grid-'+topicId);
+  let sideHtml = '', gridHtml = '';
+  groups.forEach(g=>{
+    sideHtml += '<div class="group-label">'+g.group+'</div>';
+    g.items.forEach(it=>{
+      sideHtml += '<a href="javascript:void(0)" data-target="'+it.id+'" onclick="jumpTo(\''+it.id+'\')"><span class="nav-emoji">'+it.emoji+'</span>'+it.label+'</a>';
+      gridHtml += '<button onclick="jumpTo(\''+it.id+'\')"><span class="g-emoji">'+it.emoji+'</span><span><div class="g-label">'+g.group+'</div><div class="g-title">'+it.label+'</div></span></button>';
+    });
+  });
+  sidebar.innerHTML = sideHtml;
+  grid.innerHTML = gridHtml;
+}
+Object.keys(SECTION_MAP).forEach(renderNav);
+
+/* ============ footer ============ */
+const FOOTER = {
+  name: 'Vikas Verma',
+  linkedin: 'https://www.linkedin.com/in/vikas-verma-tpm/',
+  github: 'https://github.com/vikasverma-AI-TPM'
+};
+function renderFooter(slotId){
+  const el = document.getElementById(slotId);
+  if(!el) return;
+  const initials = FOOTER.name.split(' ').filter(Boolean).map(w=>w[0]).slice(0,2).join('').toUpperCase();
+  el.innerHTML =
+    '<div class="fav">'+initials+'</div>' +
+    '<div><div class="fname">'+FOOTER.name+'</div>' +
+    '<div class="flinks">' +
+      '<a href="'+FOOTER.linkedin+'" target="_blank" rel="noopener">LinkedIn</a>' +
+      '<a href="'+FOOTER.github+'" target="_blank" rel="noopener">GitHub</a>' +
+    '</div></div>';
+}
+['landing','encoding','ohe','bow','tfidf','w2v'].forEach(id=>renderFooter('footer-'+id));
+
+/* scroll-spy: whichever section's heading has just crossed below the sticky header wins */
+const HEADER_OFFSET = 90;
+function updateActiveSection(){
+  const activeView = document.querySelector('.view.active.topic-page');
+  if(!activeView) return;
+  const sidebar = activeView.querySelector('.sidebar');
+  const sections = activeView.querySelectorAll('.content-section');
+  if(!sidebar || !sections.length) return;
+  let currentId = sections[0].id;
+  sections.forEach(sec=>{
+    if(sec.getBoundingClientRect().top - HEADER_OFFSET <= 1){ currentId = sec.id; }
+  });
+  sidebar.querySelectorAll('a').forEach(a=>a.classList.remove('active'));
+  const link = sidebar.querySelector('a[data-target="'+currentId+'"]');
+  if(link) link.classList.add('active');
+}
+let spyTicking = false;
+window.addEventListener('scroll', ()=>{
+  if(!spyTicking){
+    spyTicking = true;
+    requestAnimationFrame(()=>{ updateActiveSection(); spyTicking = false; });
+  }
+}, {passive:true});
+
+/* ============ shared text helpers ============ */
+function tokenize(str){
+  return str.toLowerCase().replace(/[^a-z0-9\s]/g,'').trim().split(/\s+/).filter(Boolean);
+}
+function getDocs(id){
+  return document.getElementById(id).value.split('\n').map(s=>s.trim()).filter(Boolean);
+}
+function buildVocab(tokenSets){
+  const vocab=[]; const seen=new Set();
+  tokenSets.forEach(toks=>toks.forEach(t=>{ if(!seen.has(t)){ seen.add(t); vocab.push(t);} }));
+  return vocab;
+}
+function escapeHtml(s){
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+/* ============ OHE ============ */
+function runOHE(){
+  const docs = getDocs('ohe-input');
+  if(docs.length === 0){ document.getElementById('ohe-output').innerHTML = '<p style="color:#948A73">Enter at least one document.</p>'; return; }
+  const tokenSets = docs.map(tokenize);
+  const vocab = buildVocab(tokenSets);
+  let html = '<div class="tbl-wrap"><table class="mono"><tr><th></th>' +
+    vocab.map(w=>'<th>'+escapeHtml(w)+'</th>').join('') + '</tr>';
+  const vecLines = [];
+  tokenSets.forEach((toks,i)=>{
+    const set = new Set(toks);
+    const vec = vocab.map(w=> set.has(w) ? 1 : 0);
+    html += '<tr><td>D'+(i+1)+'</td>' + vec.map(v=>'<td>'+v+'</td>').join('') + '</tr>';
+    vecLines.push('<div class="vecline"><b>D'+(i+1)+'</b> → [' + vec.join(', ') + ']</div>');
+  });
+  html += '</table></div>' + vecLines.join('');
+  document.getElementById('ohe-output').innerHTML = html;
+}
+
+/* ============ BOW ============ */
+function runBOW(){
+  const docs = getDocs('bow-input');
+  if(docs.length === 0){ document.getElementById('bow-output').innerHTML = '<p style="color:#948A73">Enter at least one document.</p>'; return; }
+  const tokenSets = docs.map(tokenize);
+  const vocab = buildVocab(tokenSets);
+  let html = '<div class="tbl-wrap"><table class="mono"><tr><th></th>' +
+    vocab.map(w=>'<th>'+escapeHtml(w)+'</th>').join('') + '</tr>';
+  const vecLines = [];
+  tokenSets.forEach((toks,i)=>{
+    const vec = vocab.map(w=> toks.filter(t=>t===w).length );
+    html += '<tr><td>D'+(i+1)+'</td>' + vec.map(v=>'<td>'+v+'</td>').join('') + '</tr>';
+    vecLines.push('<div class="vecline"><b>D'+(i+1)+'</b> → [' + vec.join(', ') + ']</div>');
+  });
+  html += '</table></div>' + vecLines.join('');
+  document.getElementById('bow-output').innerHTML = html;
+}
+
+/* ============ TF-IDF ============ */
+function runTFIDF(){
+  const docs = getDocs('tfidf-input');
+  if(docs.length === 0){ document.getElementById('tfidf-output').innerHTML = '<p style="color:#948A73">Enter at least one document.</p>'; return; }
+  const tokenSets = docs.map(tokenize);
+  const vocab = buildVocab(tokenSets);
+  const N = docs.length;
+  const df = vocab.map(w => tokenSets.filter(toks=>toks.includes(w)).length);
+  const idf = df.map(d => Math.log(N/d));
+
+  let html = '<div class="tbl-wrap"><table class="mono"><tr><th></th>' +
+    vocab.map(w=>'<th>'+escapeHtml(w)+'</th>').join('') + '</tr>';
+  tokenSets.forEach((toks,i)=>{
+    const total = toks.length;
+    const row = vocab.map((w,j)=>{
+      const count = toks.filter(t=>t===w).length;
+      const tf = total ? count/total : 0;
+      const val = tf * idf[j];
+      return val.toFixed(3);
+    });
+    html += '<tr><td>D'+(i+1)+'</td>' + row.map(v=>'<td>'+v+'</td>').join('') + '</tr>';
+  });
+  html += '</table></div>';
+  html += '<div class="vecline" style="margin-top:10px;">IDF per word: ' +
+    vocab.map((w,j)=> w+'='+idf[j].toFixed(3)).join(',  ') + '</div>';
+  document.getElementById('tfidf-output').innerHTML = html;
+}
+
+/* ============ Word2Vec ============ */
+function runW2V(){
+  const sentence = document.getElementById('w2v-input').value;
+  const window_ = Math.max(1, parseInt(document.getElementById('w2v-window-input').value) || 1);
+  const tokens = tokenize(sentence);
+  if(tokens.length < 2){ document.getElementById('w2v-output').innerHTML = '<p style="color:#948A73">Enter a sentence with at least two words.</p>'; return; }
+
+  let cbowRows = [], skipRows = [];
+  tokens.forEach((target, i)=>{
+    const context = [];
+    for(let k=i-window_; k<=i+window_; k++){
+      if(k>=0 && k<tokens.length && k!==i) context.push(tokens[k]);
+    }
+    cbowRows.push('<tr><td>' + context.join(', ') + '</td><td>' + target + '</td></tr>');
+    skipRows.push('<tr><td>' + target + '</td><td>' + context.join(', ') + '</td></tr>');
+  });
+
+  const html =
+    '<div class="vecline">Vocabulary: {' + Array.from(new Set(tokens)).join(', ') + '}</div>' +
+    '<h4>CBOW &mdash; context predicts target</h4>' +
+    '<div class="tbl-wrap"><table class="mono"><tr><th>Context (input)</th><th>Target (output)</th></tr>' + cbowRows.join('') + '</table></div>' +
+    '<h4>Skip-gram &mdash; target predicts context</h4>' +
+    '<div class="tbl-wrap"><table class="mono"><tr><th>Target (input)</th><th>Context (output)</th></tr>' + skipRows.join('') + '</table></div>';
+  document.getElementById('w2v-output').innerHTML = html;
+}
+
+/* ============ quiz engine ============ */
+const QUIZZES = {
+  encoding: [
+    {q:"What is the key difference between encoding and embedding?",
+     opts:["Encoding is for images, embedding is for text","Encoding converts data to numbers without preserving meaning; embedding preserves semantic meaning","Encoding is always faster to compute","The terms are interchangeable"],
+     correct:1, explain:"Encoding is typically sparse and count-based. Embedding is dense and generated via a neural network or transformer to preserve semantic relationships."},
+    {q:"A vector like [5, 10] is best described as:",
+     opts:["A scalar","A 2-dimensional vector","A 2×2 matrix","A tensor"], correct:1, explain:"Two numbers together form a single vector with 2 dimensions."},
+    {q:"Why does semantic search outperform keyword search for \"how to reduce heart risk\" vs. \"ways to lower cardiovascular disease chances\"?",
+     opts:["Semantic search matches exact words only","It compares embeddings, which place similar meanings close in vector space even with different words","Keyword search uses cosine similarity","They perform identically"], correct:1},
+    {q:"Which similarity measure is NOT typically used in semantic search?",
+     opts:["Cosine similarity","Dot product","Euclidean distance","Levenshtein (edit) distance"], correct:3, explain:"Edit distance compares characters in a string, not vectors in embedding space."}
+  ],
+  ohe: [
+    {q:"In document-level One-Hot Encoding, what does each dimension represent?",
+     opts:["The document's position in the corpus","Whether a specific vocabulary word is present (1) or absent (0)","The word's importance score","The number of characters in the document"], correct:1},
+    {q:"If your vocabulary has 10,000 words, how long is the one-hot vector for one document?",
+     opts:["Equal to the number of words in that document","10,000","1","log(10,000)"], correct:1},
+    {q:"What happens when OHE meets a word never seen during vocabulary creation?",
+     opts:["It's automatically added to the vocabulary","This is the Out-of-Vocabulary (OOV) problem \u2014 it can't be represented","It gets vector [1,1,1,...]","OHE ignores the whole document"], correct:1},
+    {q:"What's the main practical drawback of OHE at scale?",
+     opts:["It can't represent binary values","Extremely sparse, high-dimensional vectors with no semantic meaning","It requires a GPU","It only works on numeric data"], correct:1}
+  ],
+  bow: [
+    {q:"\"dog bites man\" and \"man bites dog\" get the same BoW vector because:",
+     opts:["BoW ignores word order entirely","BoW only looks at the first word","BoW is case-sensitive","These aren't valid sentences"], correct:0},
+    {q:"In BoW, \"movie movie movie\" would get:",
+     opts:["A zero vector","Disproportionately high importance for \u2018movie\u2019, from repetition alone","The same vector as \u2018movie\u2019","An error"], correct:1},
+    {q:"What does a BoW vector value represent for a word in a document?",
+     opts:["Whether it's a noun or verb","The number of times it occurs in that document","Its dictionary definition","Its alphabetical position"], correct:1},
+    {q:"Which limitation is shared by both OHE and BoW?",
+     opts:["Both require deep neural networks","Both fail to capture semantic similarity \u2014 e.g. \u2018like\u2019 and \u2018love\u2019 are unrelated","Both only work on numeric data","Both produce dense vectors"], correct:1}
+  ],
+  tfidf: [
+    {q:"What does a HIGH IDF value indicate about a word?",
+     opts:["The word is very common","The word is rare across the corpus (more informative)","The word appears exactly once ever","The word is a stopword by definition"], correct:1},
+    {q:"Why apply a logarithm in the IDF formula instead of the raw N/DF ratio?",
+     opts:["Logs compute faster than division","It compresses extreme values so rare words don't completely dominate the score","It converts the score into a probability","It's purely a display choice"], correct:1},
+    {q:"A word appears in every document in the corpus. What happens to its TF-IDF score?",
+     opts:["It becomes the maximum possible value","It tends toward zero, since IDF = log(N/N) = log(1) = 0","It becomes infinite","It stays equal to its raw frequency"], correct:1},
+    {q:"TF-IDF is commonly used for all of these EXCEPT:",
+     opts:["Ranking documents in a search engine","Information retrieval","Understanding a word's meaning across different contexts (e.g. \u2018bank\u2019)","Distinguishing important vs. common words"], correct:2, explain:"TF-IDF has no notion of context \u2014 \u2018bank\u2019 scores the same regardless of meaning. That needs embeddings."}
+  ],
+  w2v: [
+    {q:"In CBOW, the model predicts:",
+     opts:["Surrounding context words, given a target word","The target (center) word, given its surrounding context","The next sentence in a document","Whether two documents are similar"], correct:1},
+    {q:"In Skip-gram, the input and output are:",
+     opts:["Input: context words, Output: target word","Input: target word, Output: context words","Input: the entire document, Output: a single number","Input: random noise, Output: the vocabulary"], correct:1},
+    {q:"If window size jumps from 2 to 20, what typically happens?",
+     opts:["Context becomes more precise and less noisy","Context grows broader but can introduce more noise, diluting close relationships","The vocabulary shrinks","Training becomes unnecessary"], correct:1},
+    {q:"What does the size of Word2Vec's hidden layer correspond to?",
+     opts:["The vocabulary size","The number of documents in the corpus","The dimensionality of the resulting word embeddings","The number of training epochs"], correct:2},
+    {q:"Why can't Word2Vec handle a brand-new word it never saw during training?",
+     opts:["It can, since it understands word roots","It produces static, fixed embeddings only for known words \u2014 the OOV problem","It replaces unknown words with synonyms automatically","It converts unknown words into deliberate random noise vectors"], correct:1}
+  ]
+};
+
+function renderQuiz(topicId){
+  const container = document.getElementById('quiz-'+topicId);
+  const data = QUIZZES[topicId];
+  container.innerHTML = data.map((item, qi)=>{
+    const opts = item.opts.map((opt, oi)=>
+      '<button class="quiz-opt" data-topic="'+topicId+'" data-qi="'+qi+'" data-oi="'+oi+'" onclick="answerQuiz(this)">'+escapeHtml(opt)+'</button>'
+    ).join('');
+    const explain = item.explain ? item.explain : '';
+    return '<div class="quiz-q"><p class="qtext">'+(qi+1)+'. '+escapeHtml(item.q)+'</p>' + opts +
+      '<div class="quiz-explain" id="explain-'+topicId+'-'+qi+'">'+escapeHtml(explain)+'</div></div>';
+  }).join('');
+}
+function answerQuiz(btn){
+  const topic = btn.dataset.topic, qi = parseInt(btn.dataset.qi), oi = parseInt(btn.dataset.oi);
+  const item = QUIZZES[topic][qi];
+  const allOpts = document.querySelectorAll('.quiz-opt[data-topic="'+topic+'"][data-qi="'+qi+'"]');
+  allOpts.forEach((o,idx)=>{
+    o.disabled = true;
+    if(idx === item.correct) o.classList.add('correct');
+    else if(idx === oi) o.classList.add('wrong');
+  });
+  const ex = document.getElementById('explain-'+topic+'-'+qi);
+  if(ex && ex.textContent.trim()) ex.classList.add('show');
+}
+Object.keys(QUIZZES).forEach(renderQuiz);
+</script>
+</body>
+</html>
