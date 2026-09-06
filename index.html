@@ -777,6 +777,50 @@ cricket give comment</textarea>
         </div>
       </section>
 
+      <section id="w2v-cbowvsskipgram" class="content-section">
+        <h2>CBOW vs. Skip-gram — compared</h2>
+        <p>The concept section already named the two architectures. Here's where the difference actually bites:
+        they aren't just "different data layout," they train differently, and that produces different quality
+        trade-offs — especially for rare words.</p>
+        <div class="tbl-wrap">
+          <table>
+            <tr><th>Property</th><th>CBOW</th><th>Skip-gram</th></tr>
+            <tr><td>Speed</td><td>Fast</td><td>Slow</td></tr>
+            <tr><td>Typical quality</td><td>Good — solid on frequent words</td><td>Often better on rare words</td></tr>
+            <tr><td>Rare words</td><td>Weak</td><td>Strong</td></tr>
+            <tr><td>Data requirement</td><td>Less</td><td>More</td></tr>
+          </table>
+        </div>
+        <div class="tbl-wrap">
+          <table>
+            <tr><th>Part</th><th>CBOW</th><th>Skip-gram</th></tr>
+            <tr><td>Input vectors</td><td>Multiple (all context words)</td><td>Single (the center word)</td></tr>
+            <tr><td>Hidden layer</td><td>Average of the input vectors</td><td>Direct pass-through</td></tr>
+            <tr><td>Output</td><td>Single prediction</td><td>Multiple predictions</td></tr>
+          </table>
+        </div>
+        <p>CBOW takes several context words in at once, <b>averages</b> them at the hidden layer, and predicts
+        one target — one forward pass, one loss value, done. Skip-gram flips it: one center word goes in, and
+        the network has to separately predict <i>each</i> context word — so for a window of 2, that's effectively
+        multiple predictions and multiple losses computed per training example, not one. That's the direct reason
+        Skip-gram is slower: it produces more training signal per sentence, at higher compute cost per sentence.</p>
+        <div class="callout">
+          <b>Why Skip-gram wins on rare words:</b> take the sentence <code>"The king drank wine"</code>, with
+          <code>king</code> as the word of interest.
+          <br><br>
+          In <b>CBOW</b>, the training pair is <code>(The, drank, wine) → king</code>. <code>king</code> only ever
+          appears as the <i>output</i> to be predicted — its own embedding gets updated only indirectly, through
+          the error signal flowing back from one prediction.
+          <br><br>
+          In <b>Skip-gram</b>, <code>king</code> is the <i>input</i>, generating three separate training pairs:
+          <code>king → The</code>, <code>king → drank</code>, <code>king → wine</code>. <code>king</code>'s
+          embedding gets directly, repeatedly updated — one update per context word, every time it appears
+          anywhere in the corpus. For a word that doesn't show up often, that repeated direct exposure is what
+          gives Skip-gram the stronger, more reliable embedding — CBOW simply doesn't get enough indirect signal
+          to learn a rare word well.
+        </div>
+      </section>
+
       <section id="w2v-try" class="content-section">
         <h2>Try it yourself</h2>
         <div class="try-panel">
@@ -800,6 +844,11 @@ cricket give comment</textarea>
         <p>Word2Vec's "neural network" is less intimidating than it sounds: a small, fully-connected network with
         exactly <b>one hidden layer</b>. Understanding it here also explains what's happening — at a much larger
         scale — inside every transformer model down the line.</p>
+        <p>One thing worth holding onto before the layer-by-layer detail below: the word-prediction task is never
+        the actual goal. It's just the exercise that forces the network to learn something useful. What the network
+        actually learns, over the course of training, is a set of <b>weights</b> — and those learned weights are
+        exactly what become each word's embedding. Everything that follows is really just explaining <i>how</i>
+        that learning happens.</p>
 
         <h4>The three layers</h4>
         <div class="tbl-wrap">
@@ -989,6 +1038,74 @@ cricket give comment</textarea>
         </div>
       </section>
 
+      <section id="w2v-training" class="content-section">
+        <h2>Training your own Word2Vec model</h2>
+        <p>Everything above explains Google's pretrained vectors. In practice you'll often need a model trained on
+        <i>your own</i> text — internal documents, a specific domain vocabulary, a language Google didn't cover
+        well — using a library like <code>gensim</code>. The theory is identical to what's already been covered;
+        this is that same process laid out as a concrete workflow.</p>
+
+        <h4>1. Prepare the corpus</h4>
+        <p>Raw text first needs to become a list of tokenized sentences — Word2Vec never sees paragraphs or
+        documents, only sequences of words. This means: split text into sentences (e.g. <code>sent_tokenize</code>),
+        then split each sentence into a clean list of lowercase word tokens (e.g. <code>simple_preprocess</code>,
+        which also strips punctuation and very short tokens). The end result is the exact shape Word2Vec expects:
+        a list of sentences, each sentence a list of words — e.g.
+        <code>[['ai', 'is', 'the', 'future'], ['farmers', 'grow', 'crops'], ...]</code>.</p>
+
+        <h4>2. Set the hyperparameters</h4>
+        <div class="tbl-wrap">
+          <table>
+            <tr><th>Parameter</th><th>What it controls</th></tr>
+            <tr><td><code>vector_size</code></td><td>The embedding dimension — how many numbers represent each
+            word (e.g. 150). Same idea as the hidden-layer-size discussed above.</td></tr>
+            <tr><td><code>window</code></td><td>Context window size — same concept covered earlier in this page.</td></tr>
+            <tr><td><code>min_count</code></td><td>Discard any word that appears fewer than this many times in the
+            whole corpus. This isn't because such a word is inherently unable to have meaning — it's that too few
+            occurrences means too few training pairs, so the gradient updates for that word stay too sparse and
+            noisy to converge on anything useful (the same underlying signal shortage as the CBOW-vs-Skip-gram
+            rare-word issue above, just handled here by exclusion rather than architecture choice).</td></tr>
+            <tr><td><code>sg</code></td><td>Architecture switch — <code>sg=0</code> trains CBOW (the default),
+            <code>sg=1</code> trains Skip-gram.</td></tr>
+          </table>
+        </div>
+
+        <h4>3. Build the vocabulary, then train</h4>
+        <p>Building the vocabulary is a separate step from training: the model first scans the entire corpus once
+        to work out its full vocabulary (every unique word passing the <code>min_count</code> threshold) and
+        initializes a random embedding for each. Only after that does actual training run — multiple
+        <b>epochs</b> over the corpus, each one performing the forward/backward passes described earlier for
+        every context→target (or target→context) pair, gradually adjusting those random starting vectors toward
+        useful ones.</p>
+        <div class="callout">
+          Nothing here is a new concept — it's the same input layer → hidden layer → output layer → loss →
+          backprop → epoch loop from the "Neural network basics" section above, just running against your own
+          text instead of Google's. What's different is only the choice of corpus and hyperparameters.
+        </div>
+
+        <h4>4. Use the trained model</h4>
+        <p>Once training finishes, the model's hidden-layer weight matrix — the embedding table — can be queried
+        directly:</p>
+        <ul style="color:var(--ink-dim); font-size:15px;">
+          <li>Look up a word's raw vector — a list of <code>vector_size</code> numbers</li>
+          <li>Find the words closest to a given word by cosine similarity (<i>most similar</i>)</li>
+          <li>Score how similar two specific words are to each other (<i>similarity</i>)</li>
+          <li>Pick the odd one out of a list of words (<i>doesn't match</i>) — the word whose vector sits
+          furthest from the others</li>
+        </ul>
+        <p>All four of these are just vector-space arithmetic on the embedding table — nearest-neighbor lookups
+        and cosine-distance comparisons — nothing the model does "specially" at query time. The intelligence is
+        entirely baked into the vectors themselves by the time training is done.</p>
+        <div class="callout extra">
+          <span class="tag">practical note</span>
+          A model trained on a small custom corpus (a handful of documents) will have noticeably rougher
+          embeddings than Google's pretrained vectors, which were trained on billions of words. That's expected,
+          not a bug — quality here scales directly with corpus size and epoch count. The usual next steps for
+          improving a custom model: add more training data, increase epochs, and compare results at different
+          <code>vector_size</code> settings.
+        </div>
+      </section>
+
       <section id="w2v-proscons" class="content-section">
         <h2>Pros &amp; cons</h2>
         <div class="pc-grid">
@@ -1112,9 +1229,10 @@ const SECTION_MAP = {
     {group:'Reference', items:[{id:'tfidf-apps', emoji:'🌐', label:"Where it's used"},{id:'tfidf-quiz', emoji:'✅', label:'Quiz'}]}
   ],
   w2v: [
-    {group:'Concept', items:[{id:'w2v-concept', emoji:'💡', label:'The idea'},{id:'w2v-window', emoji:'🪟', label:'Window size & context'}]},
+    {group:'Concept', items:[{id:'w2v-concept', emoji:'💡', label:'The idea'},{id:'w2v-window', emoji:'🪟', label:'Window size & context'},{id:'w2v-cbowvsskipgram', emoji:'⚖️', label:'CBOW vs. Skip-gram'}]},
     {group:'Hands-on', items:[{id:'w2v-try', emoji:'🛠️', label:'Try it yourself'}]},
     {group:'How it works', items:[{id:'w2v-nn', emoji:'🧠', label:'Neural network basics'},{id:'w2v-negsampling', emoji:'🎯', label:'Negative sampling'},{id:'w2v-arch', emoji:'⚙️', label:'Applied to Word2Vec'},{id:'w2v-arithmetic', emoji:'➕', label:'Vector arithmetic'}]},
+    {group:'Practical', items:[{id:'w2v-training', emoji:'🧪', label:'Training your own model'}]},
     {group:'Reference', items:[{id:'w2v-proscons', emoji:'⚖️', label:'Pros & cons'},{id:'w2v-roadmap', emoji:'🗺️', label:"What's next"},{id:'w2v-quiz', emoji:'✅', label:'Quiz'}]}
   ]
 };
